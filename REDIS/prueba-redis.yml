@@ -1,0 +1,17 @@
+#SERVICE REDIS
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: juan-namespace
+  labels:
+    app: redis-server
+spec:
+  selector:
+    app: redis-server #hacer referencia a la app de algun pod
+  ports:  
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 8004 #puerto que se desea conectar
+      targetPort: 6379 #puerto por defecto de la app
+      protocol: TCP #protocolo que se utilizara
+  type: LoadBalancer #el tipo de servicio

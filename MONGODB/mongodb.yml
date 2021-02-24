@@ -1,0 +1,125 @@
+#PERSISTENT VOLUME MONGO
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-mongo-vol1
+  namespace: juan-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: juan-mongodb
+  capacity:
+    storage: 5Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/mongo-vol1" # Lugar donde guardara los datos
+---
+
+#STORAGE CLASS MONGODB
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: juan-mongodb
+  namespace: juan-namespace
+provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain # Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
+#DEPLOY MONGODB
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+  namespace: juan-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    matchLabels:
+      app: mongo-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mongo-server
+    spec:
+      containers:
+      - image: mongo:4.0  #docker pull image
+        name: mongo-db1
+        ports:
+        - containerPort: 27017
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data/db
+          name: mongo-db-volume1
+        env:
+          - name: MONGO_PASSWORD #Definición de la variable de entorno
+            valueFrom:
+              configMapKeyRef:
+                name: mongo-configmap #referencia del nombre del configMap
+                key: MONGO_PASSWORD #hacer referencia a la variable de entorno donde guarda el valor
+          - name: MONGO_USER #Definición de la variable de entorno
+            valueFrom:
+              configMapKeyRef:
+                name: mongo-configmap #referencia del nombre del configMap
+                key: MONGO_USER #hacer referencia a la variable de entorno donde guarda el valor
+          - name: MONGO_DB #Definición de la variable de entorno
+            valueFrom:
+              configMapKeyRef:
+                name: mongo-configmap #referencia del nombre del configMap
+                key: MONGO_DB #hacer referencia a la variable de entorno donde guarda el valor
+      volumes:
+      - name: mongo-db-volume1
+        persistentVolumeClaim:
+           claimName: pvc-mongodb
+---
+
+#CONFIGMAP MONGO
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: mongo-configmap 
+  namespace: juan-namespace
+  labels:
+    app: mongo-server
+data: # Configuration values can be set as key-value properties
+  MONGO_PASSWORD: "1234"
+  MONGO_USER: "juan"
+  MONGO_DB: "juandb"
+---
+
+#PERSISTENT VOLUME CLAIM MONGODB
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-mongodb
+  namespace: juan-namespace
+spec:
+  storageClassName: juan-mongodb
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 2Gi
+---
+
+#SERVICE MONGODB
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+  namespace: juan-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    app: mongo-server #hacer referencia a la app de algun pod
+  ports:  
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 8002 #puerto que se desea conectar
+      targetPort: 27017 #puerto por defecto de la app
+      protocol: TCP #protocolo que se utilizara
+  type: LoadBalancer #el tipo de servicio
+
+
+

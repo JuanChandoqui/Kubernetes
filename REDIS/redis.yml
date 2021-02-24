@@ -1,0 +1,122 @@
+#PERSISTENT VOLUME REDIS
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-redis-vol1
+  namespace: juan-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: juan-redis
+  capacity:
+    storage: 5Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/redis-vol1" # Lugar donde guardara los datos
+---
+
+#STORAGE CLASS REDIS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: juan-redis
+  namespace: juan-namespace
+provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain # Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
+#DEPLOY REDIS
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: juan-namespace
+  labels:
+    app: redis-server
+spec:
+  selector:
+    matchLabels:
+      app: redis-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis-server
+    spec:
+      containers:
+      - image: redis:6  #docker pull image
+        name: redis-db1
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data
+          name: redis-db-volume1
+        env:
+          - name: REDIS_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: redis-configmap
+                key: REDIS_PASSWORD   
+          - name: REDIS_USER
+            valueFrom:
+              configMapKeyRef:
+                name: redis-configmap
+                key: REDIS_USER
+          - name: REDIS_DB
+            valueFrom:
+              configMapKeyRef:
+                name: redis-configmap
+                key: REDIS_DB
+      volumes:
+      - name: redis-db-volume1
+        persistentVolumeClaim:
+           claimName: pvc-redis
+---
+
+#CONFIGMAP REDIS
+apiVersion: v1 
+kind: ConfigMap 
+metadata:
+  name: redis-configmap 
+  namespace: juan-namespace
+  labels:
+    app: redis-server
+data: # Configuration values can be set as key-value properties
+  REDIS_PASSWORD: "1234"
+  REDIS_USER: "juan"
+  REDIS_DB: "juandb"
+---
+
+#PERSISTENT VOLUME CLAIM REDIS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-redis
+  namespace: juan-namespace
+spec:
+  storageClassName: juan-redis
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 2Gi
+---
+
+#SERVICE REDIS
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: juan-namespace
+  labels:
+    app: redis-server
+spec:
+  selector:
+    app: redis-server #hacer referencia a la app de algun pod
+  ports:  
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 8004 #puerto que se desea conectar
+      targetPort: 6379 #puerto por defecto de la app
+      protocol: TCP #protocolo que se utilizara
+  type: LoadBalancer #el tipo de servicio
