@@ -1,3 +1,30 @@
+#-------------------POSTGRES-------------------------
+# Volumen persistente 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-postgres-vol1
+  namespace: juan-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: postgres
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/postgres-vol1" # Lugar donde guardara los datos
+---
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: postgres
+  namespace: juan-namespace
+provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain # Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
 #DEPLOYMENT POSTGRESQL
 apiVersion: apps/v1
 kind: Deployment
@@ -44,7 +71,7 @@ spec:
       volumes:
       - name: postgres-db-volume1
         persistentVolumeClaim:
-           claimName: pvc-juan
+           claimName: pvc-postgres
 ---
 #CONFIGMAP POSTGRES
 kind: ConfigMap 
@@ -60,6 +87,20 @@ data: # Configuration values can be set as key-value properties
   POSTGRES_DB: "juandb"
 ---
 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-postgres
+  namespace: juan-namespace
+spec:
+  storageClassName: postgres
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
 #SERVICE POSTGRESQL
 apiVersion: v1
 kind: Service
@@ -73,7 +114,7 @@ spec:
     app: postgres-server #hacer referencia a la app de algun pod
   ports:  
       # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
-    - port: 8000 #puerto que se desea conectar
+    - port: 5300 #puerto que se desea conectar
       targetPort: 5432 #puerto por defecto de la app
       protocol: TCP #protocolo que se utilizara
   type: LoadBalancer #el tipo de servicio
