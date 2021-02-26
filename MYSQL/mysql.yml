@@ -1,0 +1,117 @@
+#-----------------MYSQL------------------------------
+#PERSISTENT VOLUME MYSQL
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-mysql-vol1
+  namespace: juan-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: juan-mysql
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/mysql-vol1" # Lugar donde guardara los datos
+---
+
+#STORAGE CLASS REDIS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: juan-mysql
+  namespace: juan-namespace
+provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain # Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
+#DEPLOY MYSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  namespace: juan-namespace
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    matchLabels:
+      app: mysql-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-server
+    spec:
+      containers:
+      - image: mysql:8  #docker pull image
+        name: mysql-db1
+        ports:
+        - containerPort: 3306
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-db-volume1
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: mysql-configmap
+                key: MYSQL_ROOT_PASSWORD   
+          - name: MYSQL_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: mysql-configmap
+                key: MYSQL_DATABASE
+      volumes:
+      - name: mysql-db-volume1
+        persistentVolumeClaim:
+           claimName: pvc-mysql
+---
+
+#CONFIGMAP REDIS
+apiVersion: v1 
+kind: ConfigMap 
+metadata:
+  name: mysql-configmap 
+  namespace: juan-namespace
+  labels:
+    app: mysql-server
+data: # Configuration values can be set as key-value properties
+  MYSQL_ROOT_PASSWORD: "1234"
+  MYSQL_DATABASE: "juandb"
+---
+
+#PERSISTENT VOLUME CLAIM REDIS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-mysql
+  namespace: juan-namespace
+spec:
+  storageClassName: juan-mysql
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+#SERVICE REDIS
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: juan-namespace
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    app: mysql-server #hacer referencia a la app de algun pod
+  ports:  
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 5303 #puerto que se desea conectar
+      targetPort: 3306 #puerto por defecto de la app
+      protocol: TCP #protocolo que se utilizara
+  type: LoadBalancer #el tipo de servicio
