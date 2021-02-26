@@ -1,3 +1,4 @@
+#-----------------REDIS------------------------------
 #PERSISTENT VOLUME REDIS
 apiVersion: v1
 kind: PersistentVolume
@@ -7,7 +8,7 @@ metadata:
 spec: #Configuración de lo que va a contruir a nivel de disco
   storageClassName: juan-redis
   capacity:
-    storage: 5Gi # Capacidad
+    storage: 10Gi # Capacidad
   accessModes:
     - ReadWriteOnce # Lectura y escritura
   hostPath:
@@ -44,7 +45,7 @@ spec:
         app: redis-server
     spec:
       containers:
-      - image: redis:6  #docker pull image
+      - image: redis:latest  #docker pull image
         name: redis-db1
         ports:
         - containerPort: 6379
@@ -58,11 +59,6 @@ spec:
               configMapKeyRef:
                 name: redis-configmap
                 key: REDIS_PASSWORD   
-          - name: REDIS_USER
-            valueFrom:
-              configMapKeyRef:
-                name: redis-configmap
-                key: REDIS_USER
           - name: REDIS_DB
             valueFrom:
               configMapKeyRef:
@@ -84,7 +80,6 @@ metadata:
     app: redis-server
 data: # Configuration values can be set as key-value properties
   REDIS_PASSWORD: "1234"
-  REDIS_USER: "juan"
   REDIS_DB: "juandb"
 ---
 
@@ -100,7 +95,7 @@ spec:
     - ReadWriteOnce
   resources: #Configuración de lo que va a reclamar
     requests:
-      storage: 2Gi
+      storage: 5Gi
 ---
 
 #SERVICE REDIS
@@ -116,7 +111,7 @@ spec:
     app: redis-server #hacer referencia a la app de algun pod
   ports:  
       # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
-    - port: 8004 #puerto que se desea conectar
+    - port: 5301 #puerto que se desea conectar
       targetPort: 6379 #puerto por defecto de la app
       protocol: TCP #protocolo que se utilizara
   type: LoadBalancer #el tipo de servicio

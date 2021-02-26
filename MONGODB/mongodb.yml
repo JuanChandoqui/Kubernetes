@@ -7,7 +7,7 @@ metadata:
 spec: #Configuración de lo que va a contruir a nivel de disco
   storageClassName: juan-mongodb
   capacity:
-    storage: 5Gi # Capacidad
+    storage: 10Gi # Capacidad
   accessModes:
     - ReadWriteOnce # Lectura y escritura
   hostPath:
@@ -44,7 +44,7 @@ spec:
         app: mongo-server
     spec:
       containers:
-      - image: mongo:4.0  #docker pull image
+      - image: mongo:4.1.7  #docker pull image
         name: mongo-db1
         ports:
         - containerPort: 27017
@@ -53,17 +53,17 @@ spec:
         - mountPath: /data/db
           name: mongo-db-volume1
         env:
-          - name: MONGO_PASSWORD #Definición de la variable de entorno
+          - name: MONGO_INITDB_ROOT_PASSWORD #Definición de la variable de entorno
             valueFrom:
               configMapKeyRef:
                 name: mongo-configmap #referencia del nombre del configMap
                 key: MONGO_PASSWORD #hacer referencia a la variable de entorno donde guarda el valor
-          - name: MONGO_USER #Definición de la variable de entorno
+          - name: MONGO_INITDB_ROOT_USERNAME #Definición de la variable de entorno
             valueFrom:
               configMapKeyRef:
                 name: mongo-configmap #referencia del nombre del configMap
                 key: MONGO_USER #hacer referencia a la variable de entorno donde guarda el valor
-          - name: MONGO_DB #Definición de la variable de entorno
+          - name: MONGO_INITDB_ROOT_DB #Definición de la variable de entorno
             valueFrom:
               configMapKeyRef:
                 name: mongo-configmap #referencia del nombre del configMap
@@ -100,7 +100,7 @@ spec:
     - ReadWriteOnce
   resources: #Configuración de lo que va a reclamar
     requests:
-      storage: 2Gi
+      storage: 5Gi
 ---
 
 #SERVICE MONGODB
@@ -116,7 +116,7 @@ spec:
     app: mongo-server #hacer referencia a la app de algun pod
   ports:  
       # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
-    - port: 8002 #puerto que se desea conectar
+    - port: 5302 #puerto que se desea conectar
       targetPort: 27017 #puerto por defecto de la app
       protocol: TCP #protocolo que se utilizara
   type: LoadBalancer #el tipo de servicio
