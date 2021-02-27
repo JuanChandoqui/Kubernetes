@@ -1,3 +1,4 @@
+#-----------------MONGODB-------------------------
 #PERSISTENT VOLUME MONGO
 apiVersion: v1
 kind: PersistentVolume
@@ -5,7 +6,7 @@ metadata:
   name: pv-mongo-vol1
   namespace: juan-namespace
 spec: #Configuración de lo que va a contruir a nivel de disco
-  storageClassName: juan-mongodb
+  storageClassName: mongodb
   capacity:
     storage: 10Gi # Capacidad
   accessModes:
@@ -18,7 +19,7 @@ spec: #Configuración de lo que va a contruir a nivel de disco
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: juan-mongodb
+  name: mongodb
   namespace: juan-namespace
 provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
 reclaimPolicy: Retain # Que realizara con mis datos 
@@ -94,8 +95,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: pvc-mongodb
   namespace: juan-namespace
+  labels:
+    app: mongo-server
 spec:
-  storageClassName: juan-mongodb
+  storageClassName: mongodb
   accessModes:
     - ReadWriteOnce
   resources: #Configuración de lo que va a reclamar
@@ -120,6 +123,3 @@ spec:
       targetPort: 27017 #puerto por defecto de la app
       protocol: TCP #protocolo que se utilizara
   type: LoadBalancer #el tipo de servicio
-
-
-

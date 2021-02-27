@@ -15,6 +15,7 @@ spec: #Configuración de lo que va a contruir a nivel de disco
     path: "/mnt/postgres-vol1" # Lugar donde guardara los datos
 ---
 
+#Storage Class
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -73,6 +74,7 @@ spec:
         persistentVolumeClaim:
            claimName: pvc-postgres
 ---
+
 #CONFIGMAP POSTGRES
 kind: ConfigMap 
 apiVersion: v1 
@@ -87,6 +89,7 @@ data: # Configuration values can be set as key-value properties
   POSTGRES_DB: "juandb"
 ---
 
+#PersistentVolumeClaim
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
