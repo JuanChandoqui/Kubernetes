@@ -1,258 +1,3 @@
-#---------------NAMESPACE----------------
-#apiVersion: v1
-#kind: Namespace
-#metadata:
-#  name: juan-namespace
-#---
-
-#-----------------MONGODB-------------------------
-#PERSISTENT VOLUME MONGO
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: pv-mongo-vol1
-  namespace: juan-namespace
-spec: #Configuración de lo que va a contruir a nivel de disco
-  storageClassName: mongodb
-  capacity:
-    storage: 10Gi # Capacidad
-  accessModes:
-    - ReadWriteOnce # Lectura y escritura
-  hostPath:
-    path: "/mnt/mongo-vol1" # Lugar donde guardara los datos
----
-
-#STORAGE CLASS MONGODB
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: mongodb
-  namespace: juan-namespace
-provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
-reclaimPolicy: Retain # Que realizara con mis datos 
-volumeBindingMode: WaitForFirstConsumer
----
-
-#DEPLOY MONGODB
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mongo-deployment
-  namespace: juan-namespace
-  labels:
-    app: mongo-server
-spec:
-  selector:
-    matchLabels:
-      app: mongo-server
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: mongo-server
-    spec:
-      containers:
-      - image: mongo:4.1.7  #docker pull image
-        name: mongo-db1
-        ports:
-        - containerPort: 27017
-          protocol: TCP
-        volumeMounts:
-        - mountPath: /data/db
-          name: mongo-db-volume1
-        env:
-          - name: MONGO_INITDB_ROOT_PASSWORD #Definición de la variable de entorno
-            valueFrom:
-              configMapKeyRef:
-                name: mongo-configmap #referencia del nombre del configMap
-                key: MONGO_PASSWORD #hacer referencia a la variable de entorno donde guarda el valor
-          - name: MONGO_INITDB_ROOT_USERNAME #Definición de la variable de entorno
-            valueFrom:
-              configMapKeyRef:
-                name: mongo-configmap #referencia del nombre del configMap
-                key: MONGO_USER #hacer referencia a la variable de entorno donde guarda el valor
-          - name: MONGO_INITDB_ROOT_DB #Definición de la variable de entorno
-            valueFrom:
-              configMapKeyRef:
-                name: mongo-configmap #referencia del nombre del configMap
-                key: MONGO_DB #hacer referencia a la variable de entorno donde guarda el valor
-      volumes:
-      - name: mongo-db-volume1
-        persistentVolumeClaim:
-           claimName: pvc-mongodb
----
-
-#CONFIGMAP MONGO
-kind: ConfigMap 
-apiVersion: v1 
-metadata:
-  name: mongo-configmap 
-  namespace: juan-namespace
-  labels:
-    app: mongo-server
-data: # Configuration values can be set as key-value properties
-  MONGO_PASSWORD: "1234"
-  MONGO_USER: "juan"
-  MONGO_DB: "juandb"
----
-
-#PERSISTENT VOLUME CLAIM MONGODB
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-mongodb
-  namespace: juan-namespace
-  labels:
-    app: mongo-server
-spec:
-  storageClassName: mongodb
-  accessModes:
-    - ReadWriteOnce
-  resources: #Configuración de lo que va a reclamar
-    requests:
-      storage: 5Gi
----
-
-#SERVICE MONGODB
-apiVersion: v1
-kind: Service
-metadata:
-  name: mongo-service
-  namespace: juan-namespace
-  labels:
-    app: mongo-server
-spec:
-  selector:
-    app: mongo-server #hacer referencia a la app de algun pod
-  ports:  
-      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
-    - port: 5302 #puerto que se desea conectar
-      targetPort: 27017 #puerto por defecto de la app
-      protocol: TCP #protocolo que se utilizara
-  type: LoadBalancer #el tipo de servicio
----
-
-#-----------------MYSQL------------------------------
-#PERSISTENT VOLUME MYSQL
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: pv-mysql-vol1
-  namespace: juan-namespace
-spec: #Configuración de lo que va a contruir a nivel de disco
-  storageClassName: mysql
-  capacity:
-    storage: 10Gi # Capacidad
-  accessModes:
-    - ReadWriteOnce # Lectura y escritura
-  hostPath:
-    path: "/mnt/mysql-vol1" # Lugar donde guardara los datos
----
-
-#STORAGE CLASS REDIS
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: mysql
-  namespace: juan-namespace
-provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
-reclaimPolicy: Retain # Que realizara con mis datos 
-volumeBindingMode: WaitForFirstConsumer
----
-
-#DEPLOY MYSQL
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mysql-deployment
-  namespace: juan-namespace
-  labels:
-    app: mysql-server
-spec:
-  selector:
-    matchLabels:
-      app: mysql-server
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: mysql-server
-    spec:
-      containers:
-      - image: mysql:8  #docker pull image
-        name: mysql-db1
-        ports:
-        - containerPort: 3306
-          protocol: TCP
-        volumeMounts:
-        - mountPath: /var/lib/mysql
-          name: mysql-db-volume1
-        env:
-          - name: MYSQL_ROOT_PASSWORD
-            valueFrom:
-              configMapKeyRef:
-                name: mysql-configmap
-                key: MYSQL_ROOT_PASSWORD   
-          - name: MYSQL_DATABASE
-            valueFrom:
-              configMapKeyRef:
-                name: mysql-configmap
-                key: MYSQL_DATABASE
-      volumes:
-      - name: mysql-db-volume1
-        persistentVolumeClaim:
-           claimName: pvc-mysql
----
-
-#CONFIGMAP REDIS
-apiVersion: v1 
-kind: ConfigMap 
-metadata:
-  name: mysql-configmap 
-  namespace: juan-namespace
-  labels:
-    app: mysql-server
-data: # Configuration values can be set as key-value properties
-  MYSQL_ROOT_PASSWORD: "1234"
-  MYSQL_DATABASE: "juandb"
----
-
-#PERSISTENT VOLUME CLAIM REDIS
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-mysql
-  namespace: juan-namespace
-  labels:
-    app: mysql-server
-spec:
-  storageClassName: mysql
-  accessModes:
-    - ReadWriteOnce
-  resources: #Configuración de lo que va a reclamar
-    requests:
-      storage: 5Gi
----
-
-#SERVICE REDIS
-apiVersion: v1
-kind: Service
-metadata:
-  name: mysql-service
-  namespace: juan-namespace
-  labels:
-    app: mysql-server
-spec:
-  selector:
-    app: mysql-server #hacer referencia a la app de algun pod
-  ports:  
-      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
-    - port: 5303 #puerto que se desea conectar
-      targetPort: 3306 #puerto por defecto de la app
-      protocol: TCP #protocolo que se utilizara
-  type: LoadBalancer #el tipo de servicio
----
-
 #-------------------POSTGRES-------------------------
 # Volumen persistente 
 apiVersion: v1
@@ -279,6 +24,35 @@ metadata:
 provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
 reclaimPolicy: Retain # Que realizara con mis datos 
 volumeBindingMode: WaitForFirstConsumer
+---
+
+#PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-postgres
+  namespace: juan-namespace
+spec:
+  storageClassName: postgres
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+#CONFIGMAP POSTGRES
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: postgres-configmap 
+  namespace: juan-namespace
+  labels:
+    app: postgres-server
+data: # Configuration values can be set as key-value properties
+  POSTGRES_PASSWORD: "1234"
+  POSTGRES_USER: "juan"
+  POSTGRES_DB: "juandb"
 ---
 
 #DEPLOYMENT POSTGRESQL
@@ -330,37 +104,6 @@ spec:
            claimName: pvc-postgres
 ---
 
-#CONFIGMAP POSTGRES
-kind: ConfigMap 
-apiVersion: v1 
-metadata:
-  name: postgres-configmap 
-  namespace: juan-namespace
-  labels:
-    app: postgres-server
-data: # Configuration values can be set as key-value properties
-  POSTGRES_PASSWORD: "1234"
-  POSTGRES_USER: "juan"
-  POSTGRES_DB: "juandb"
----
-
-#PersistentVolumeClaim
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-postgres
-  namespace: juan-namespace
-  labels:
-    app: postgres-server
-spec:
-  storageClassName: postgres
-  accessModes:
-    - ReadWriteOnce
-  resources: #Configuración de lo que va a reclamar
-    requests:
-      storage: 5Gi
----
-
 #SERVICE POSTGRESQL
 apiVersion: v1
 kind: Service
@@ -379,7 +122,6 @@ spec:
       protocol: TCP #protocolo que se utilizara
   type: LoadBalancer #el tipo de servicio
 ---
-
 #-----------------REDIS------------------------------
 #PERSISTENT VOLUME REDIS
 apiVersion: v1
@@ -406,6 +148,36 @@ metadata:
 provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
 reclaimPolicy: Retain # Que realizara con mis datos 
 volumeBindingMode: WaitForFirstConsumer
+---
+
+#PERSISTENT VOLUME CLAIM REDIS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-redis
+  namespace: juan-namespace
+  labels:
+    app: redis-server
+spec:
+  storageClassName: redis
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+#CONFIGMAP REDIS
+apiVersion: v1 
+kind: ConfigMap 
+metadata:
+  name: redis-configmap 
+  namespace: juan-namespace
+  labels:
+    app: redis-server
+data: # Configuration values can be set as key-value properties
+  REDIS_PASSWORD: "1234"
+  REDIS_DB: "juandb"
 ---
 
 #DEPLOY REDIS
@@ -452,36 +224,6 @@ spec:
            claimName: pvc-redis
 ---
 
-#CONFIGMAP REDIS
-apiVersion: v1 
-kind: ConfigMap 
-metadata:
-  name: redis-configmap 
-  namespace: juan-namespace
-  labels:
-    app: redis-server
-data: # Configuration values can be set as key-value properties
-  REDIS_PASSWORD: "1234"
-  REDIS_DB: "juandb"
----
-
-#PERSISTENT VOLUME CLAIM REDIS
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-redis
-  namespace: juan-namespace
-  labels:
-    app: redis-server
-spec:
-  storageClassName: redis
-  accessModes:
-    - ReadWriteOnce
-  resources: #Configuración de lo que va a reclamar
-    requests:
-      storage: 5Gi
----
-
 #SERVICE REDIS
 apiVersion: v1
 kind: Service
@@ -497,5 +239,252 @@ spec:
       # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
     - port: 5301 #puerto que se desea conectar
       targetPort: 6379 #puerto por defecto de la app
+      protocol: TCP #protocolo que se utilizara
+  type: LoadBalancer #el tipo de servicio
+---
+
+#-----------------MONGODB-------------------------
+#PERSISTENT VOLUME MONGO
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-mongo-vol1
+  namespace: juan-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: mongodb
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/mongo-vol1" # Lugar donde guardara los datos
+---
+
+#STORAGE CLASS MONGODB
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: mongodb
+  namespace: juan-namespace
+provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain # Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
+#PERSISTENT VOLUME CLAIM MONGODB
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-mongodb
+  namespace: juan-namespace
+  labels:
+    app: mongo-server
+spec:
+  storageClassName: mongodb
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+
+#CONFIGMAP MONGO
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: mongo-configmap 
+  namespace: juan-namespace
+  labels:
+    app: mongo-server
+data: # Configuration values can be set as key-value properties
+  MONGO_PASSWORD: "1234"
+  MONGO_USER: "juan"
+  MONGO_DB: "juandb"
+---
+
+#DEPLOY MONGODB
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+  namespace: juan-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    matchLabels:
+      app: mongo-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mongo-server
+    spec:
+      containers:
+      - image: mongo:latest  #docker pull image
+        name: mongo-db1
+        ports:
+        - containerPort: 27017
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data/db
+          name: mongo-db-volume1
+        env:
+          - name: MONGO_INITDB_DATABASE  #Definición de la variable de entorno
+            valueFrom:
+              configMapKeyRef:
+                name: mongo-configmap  #referencia del nombre del configMap
+                key: MONGO_DB  #hacer referencia a la variable de entorno donde guarda el valor
+          - name: MONGO_INITDB_ROOT_PASSWORD  #Definición de la variable de entorno
+            valueFrom:
+              configMapKeyRef:
+                name: mongo-configmap #referencia del nombre del configMap
+                key: MONGO_PASSWORD #hacer referencia a la variable de entorno donde guarda el valor
+          - name: MONGO_INITDB_ROOT_USERNAME #Definición de la variable de entorno
+            valueFrom:
+              configMapKeyRef:
+                name: mongo-configmap #referencia del nombre del configMap
+                key: MONGO_USER #hacer referencia a la variable de entorno donde guarda el valor
+      volumes:
+      - name: mongo-db-volume1
+        persistentVolumeClaim:
+           claimName: pvc-mongodb
+---
+
+#SERVICE MONGODB
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service
+  namespace: juan-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    app: mongo-server #hacer referencia a la app de algun pod
+  ports:  
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 5302 #puerto que se desea conectar
+      targetPort: 27017 #puerto por defecto de la app
+      protocol: TCP #protocolo que se utilizara
+  type: LoadBalancer #el tipo de servicio
+---  
+#-----------------MYSQL------------------------------
+#PERSISTENT VOLUME MYSQL
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-mysql-vol1
+  namespace: juan-namespace
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: mysql
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/mysql-vol1" # Lugar donde guardara los datos
+---
+
+#STORAGE CLASS REDIS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: mysql
+  namespace: juan-namespace
+provisioner: kubernetes.io/no-provisioner # no-provisioner -> Entorno de de infraestructura local
+reclaimPolicy: Retain # Que realizara con mis datos 
+volumeBindingMode: WaitForFirstConsumer
+---
+
+#PERSISTENT VOLUME CLAIM REDIS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-mysql
+  namespace: juan-namespace
+  labels:
+    app: mysql-server
+spec:
+  storageClassName: mysql
+  accessModes:
+    - ReadWriteOnce
+  resources: #Configuración de lo que va a reclamar
+    requests:
+      storage: 5Gi
+---
+      
+#CONFIGMAP REDIS
+apiVersion: v1 
+kind: ConfigMap 
+metadata:
+  name: mysql-configmap 
+  namespace: juan-namespace
+  labels:
+    app: mysql-server
+data: # Configuration values can be set as key-value properties
+  MYSQL_ROOT_PASSWORD: "1234"
+  MYSQL_DATABASE: "juandb"
+
+---
+#DEPLOY MYSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  namespace: juan-namespace
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    matchLabels:
+      app: mysql-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-server
+    spec:
+      containers:
+      - image: mysql:8  #docker pull image
+        name: mysql-db1
+        ports:
+        - containerPort: 3306
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-db-volume1
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: mysql-configmap
+                key: MYSQL_ROOT_PASSWORD   
+          - name: MYSQL_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: mysql-configmap
+                key: MYSQL_DATABASE
+      volumes:
+      - name: mysql-db-volume1
+        persistentVolumeClaim:
+           claimName: pvc-mysql
+---
+
+#SERVICE REDIS
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: juan-namespace
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    app: mysql-server #hacer referencia a la app de algun pod
+  ports:  
+      # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
+    - port: 5303 #puerto que se desea conectar
+      targetPort: 3306 #puerto por defecto de la app
       protocol: TCP #protocolo que se utilizara
   type: LoadBalancer #el tipo de servicio
